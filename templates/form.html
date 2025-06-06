@@ -1,77 +1,353 @@
 <!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kartu Nama Digital</title>
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  />
-  <script>
-    // Mencegah tombol submit diklik berkali‐kali
-    document.addEventListener('DOMContentLoaded', function() {
-      const form = document.getElementById('cardForm');
-      form.addEventListener('submit', () => {
-        document.getElementById('submitBtn').disabled = true;
-      });
-    });
-  </script>
-</head>
-<body class="bg-light">
-  <div class="container mt-5">
-    <h2 class="mb-4">Kartu Nama Digital (Lokal)</h2>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Digital Business Card</title>
 
-    <!-- Tampilkan flash messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, msg in messages %}
-          <div class="alert alert-{{ 
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+
+    <!-- Cleave.js core (deferred) -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/cleave.js@1.6.0/dist/cleave.min.js"
+      defer
+    ></script>
+    <!-- Cleave.js phone add-on for Indonesia formatting -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/cleave.js@1.6.0/dist/addons/cleave-phone.id.js"
+      defer
+    ></script>
+
+    <style>
+      /* Container suggestion is absolute */
+      #company-suggestions {
+        position: absolute;
+        z-index: 1000;
+        width: 100%;
+      }
+      /* Each suggestion item displays vertically */
+      #company-suggestions .list-group-item {
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        padding: 0.5rem 1rem;
+      }
+      /* Company name bold and truncated */
+      #company-suggestions .company-name {
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* Address smaller, grey, truncated */
+      #company-suggestions .company-address {
+        font-size: 0.85rem;
+        color: #6c757d;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* Category even smaller */
+      #company-suggestions .company-category {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-top: 2px;
+      }
+    </style>
+  </head>
+  <body class="bg-light">
+    <div class="container mt-5">
+      <h2 class="mb-4">Digital Business Card</h2>
+
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %} {% for category, msg in messages %}
+      <div
+        class="alert alert-{{ 
                 'danger' if category == 'danger' else 
-                ('warning' if category == 'warning' else 'success') 
-              }}" role="alert">
-            {{ msg }}
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+                ('warning' if category == 'warning' else 'success')
+              }}"
+        role="alert"
+      >
+        {{ msg }}
+      </div>
+      {% endfor %} {% endif %} {% endwith %}
 
-    <form id="cardForm" method="POST" action="{{ url_for('form_card') }}">
-      <div class="mb-3">
-        <label for="nama" class="form-label">Nama Lengkap</label>
-        <input
-          type="text"
-          class="form-control"
-          id="nama"
-          name="nama"
-          placeholder="Masukkan nama lengkap"
-          required
-        />
-      </div>
-      <div class="mb-3">
-        <label for="email" class="form-label">Email</label>
-        <input
-          type="email"
-          class="form-control"
-          id="email"
-          name="email"
-          placeholder="Masukkan email"
-          required
-        />
-      </div>
-      <div class="mb-3">
-        <label for="perusahaan" class="form-label">Perusahaan</label>
-        <input
-          type="text"
-          class="form-control"
-          id="perusahaan"
-          name="perusahaan"
-          placeholder="Masukkan nama perusahaan"
-          required
-        />
-      </div>
-      <button type="submit" id="submitBtn" class="btn btn-primary">Kirim</button>
-    </form>
-  </div>
-</body>
+      <form id="cardForm" method="POST" action="{{ url_for('form_card') }}">
+        <div class="row g-3 position-relative">
+          <!-- Full Name -->
+          <div class="col-md-6">
+            <label for="full_name" class="form-label">Full Name</label>
+            <input
+              type="text"
+              class="form-control"
+              id="full_name"
+              name="full_name"
+              placeholder="Enter full name"
+              required
+            />
+          </div>
+
+          <!-- Company Name with autocomplete -->
+          <div class="col-md-6">
+            <label for="company_name" class="form-label">Company Name</label>
+            <input
+              type="text"
+              class="form-control"
+              id="company_name"
+              name="company_name"
+              placeholder="Start typing company name..."
+              autocomplete="off"
+              required
+            />
+            <div id="company-suggestions" class="list-group"></div>
+          </div>
+
+          <!-- Phone Number -->
+          <div class="col-md-6">
+            <label for="phone" class="form-label">Phone Number</label>
+            <input
+              type="text"
+              class="form-control"
+              id="phone"
+              name="phone"
+              placeholder="Enter phone number"
+              required
+            />
+          </div>
+
+          <!-- Job Title -->
+          <div class="col-md-6">
+            <label for="job_title" class="form-label">Job Title</label>
+            <input
+              type="text"
+              class="form-control"
+              id="job_title"
+              name="job_title"
+              placeholder="Enter job title"
+              required
+            />
+          </div>
+
+          <!-- Job Title Tier -->
+          <div class="col-md-6">
+            <label for="job_title_tier" class="form-label"
+              >Job Title Tier</label
+            >
+            <select
+              class="form-select"
+              id="job_title_tier"
+              name="job_title_tier"
+              required
+            >
+              <option value="">-- Select Job Title Tier --</option>
+              <option value="Chairman">Chairman</option>
+              <option value="CEO">CEO</option>
+              <option value="CFO">CFO</option>
+              <option value="COO">COO</option>
+              <option value="Commissioner">Commissioner</option>
+              <option value="President">President</option>
+              <option value="Owner">Owner</option>
+              <option value="Founder">Founder</option>
+              <option value="Director">Director</option>
+              <option value="Vice President">Vice President</option>
+              <option value="Senior Management">Senior Management</option>
+              <option value="General Manager">General Manager</option>
+              <option value="Manager">Manager</option>
+              <option value="Operation">Operation</option>
+              <option value="Engineering">Engineering</option>
+              <option value="Geologist">Geologist</option>
+              <option value="Metallurgist">Metallurgist</option>
+              <option value="Purchasing">Purchasing</option>
+              <option value="Procurement">Procurement</option>
+              <option value="Business Development">Business Development</option>
+              <option value="Sales">Sales</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Finance">Finance</option>
+              <option value="Legal">Legal</option>
+              <option value="Consultant">Consultant</option>
+              <option value="Government">Government</option>
+              <option value="Advisor">Advisor</option>
+              <option value="Traders">Traders</option>
+              <option value="Head">Head</option>
+              <option value="Superintendent">Superintendent</option>
+              <option value="Supervisor">Supervisor</option>
+              <option value="Others">Others</option>
+            </select>
+          </div>
+
+          <!-- Business Email -->
+          <div class="col-md-6">
+            <label for="email_business" class="form-label"
+              >Business Email</label
+            >
+            <input
+              type="email"
+              class="form-control"
+              id="email_business"
+              name="email_business"
+              placeholder="Enter business email"
+              required
+            />
+          </div>
+
+          <!-- Company Address (auto-filled on selection) -->
+          <div class="col-md-6">
+            <label for="company_address" class="form-label"
+              >Company Address (optional)</label
+            >
+            <textarea
+              class="form-control"
+              id="company_address"
+              name="company_address"
+              rows="2"
+              placeholder="Enter company address or select from suggestions"
+            ></textarea>
+          </div>
+
+          <!-- Office Number (optional) -->
+          <div class="col-md-6">
+            <label for="office_number" class="form‐label"
+              >Office Number (optional)</label
+            >
+            <input
+              type="text"
+              class="form-control"
+              id="office_number"
+              name="office_number"
+              placeholder="Enter office number (optional)"
+            />
+          </div>
+
+          <!-- Company Category (auto-selected on suggestion) -->
+          <div class="col-md-6">
+            <label for="category_id" class="form-label">Company Category</label>
+            <select
+              class="form-select"
+              id="category_id"
+              name="category_id"
+              required
+            >
+              <option value="">-- Select Category --</option>
+              {% for cat in categories %}
+              <option value="{{ cat.id }}">{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <button type="submit" id="submitBtn" class="btn btn-primary">
+            <span id="btn-text">Submit</span>
+            <span
+              id="btn-spinner"
+              class="spinner-border spinner-border-sm ms-2"
+              role="status"
+              style="display: none"
+            ></span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Initialize Cleave.js for phone formatting
+        new Cleave("#phone", {
+          phone: true,
+          phoneRegionCode: "ID",
+        });
+
+        // Disable submit button and show spinner on submit
+        const form = document.getElementById("cardForm");
+        const btn = document.getElementById("submitBtn");
+        const btnText = document.getElementById("btn-text");
+        const btnSpinner = document.getElementById("btn-spinner");
+        form.addEventListener("submit", function () {
+          btn.disabled = true;
+          btnText.textContent = "Loading...";
+          btnSpinner.style.display = "inline-block";
+        });
+
+        // Autocomplete logic for company_name
+        const companyInput = document.getElementById("company_name");
+        const suggestionsBox = document.getElementById("company-suggestions");
+        let debounceTimeout = null;
+
+        companyInput.addEventListener("input", function () {
+          clearTimeout(debounceTimeout);
+          const query = companyInput.value.trim();
+          if (query.length >= 4) {
+            debounceTimeout = setTimeout(() => {
+              fetch(`/autocomplete_company?q=${encodeURIComponent(query)}`)
+                .then((response) => response.json())
+                .then((data) => {
+                  suggestionsBox.innerHTML = "";
+                  if (data.length === 0) {
+                    suggestionsBox.style.display = "none";
+                    return;
+                  }
+                  data.forEach((item) => {
+                    const option = document.createElement("a");
+                    option.classList.add(
+                      "list-group-item",
+                      "list-group-item-action"
+                    );
+
+                    const nameEl = document.createElement("div");
+                    nameEl.classList.add("company-name");
+                    nameEl.textContent = item.company_name;
+
+                    const addrEl = document.createElement("div");
+                    addrEl.classList.add("company-address");
+                    addrEl.textContent = item.company_address;
+
+                    const catEl = document.createElement("div");
+                    catEl.classList.add("company-category");
+                    catEl.textContent = item.category_name;
+
+                    option.appendChild(nameEl);
+                    option.appendChild(addrEl);
+                    option.appendChild(catEl);
+
+                    option.addEventListener("click", function () {
+                      companyInput.value = item.company_name;
+                      document.getElementById("company_address").value =
+                        item.company_address;
+                      document.getElementById("category_id").value =
+                        item.category_id;
+                      suggestionsBox.innerHTML = "";
+                      suggestionsBox.style.display = "none";
+                    });
+
+                    suggestionsBox.appendChild(option);
+                  });
+                  suggestionsBox.style.display = "block";
+                });
+            }, 300);
+          } else {
+            suggestionsBox.innerHTML = "";
+            suggestionsBox.style.display = "none";
+          }
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener("click", function (e) {
+          if (
+            !companyInput.contains(e.target) &&
+            !suggestionsBox.contains(e.target)
+          ) {
+            suggestionsBox.innerHTML = "";
+            suggestionsBox.style.display = "none";
+          }
+        });
+      });
+    </script>
+  </body>
 </html>

@@ -1,15 +1,26 @@
-# app.py
-
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from dotenv import load_dotenv
 import pymysql.cursors
+from flask_cors import CORS
 
-# Load environment variables from .env
+# Load environment variables
 load_dotenv()
 
+# Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'fallback_secret')
+
+# Enable CORS only for the autocomplete endpoint and specific origins
+CORS(app, resources={
+    r"/autocomplete_company": {
+        "origins": [
+            "https://indonesiaminer.com",
+            "https://staging.indonesiaminer.com",
+            "http://127.0.0.1:8000"
+        ]
+    }
+})
 
 # MySQL connection configuration
 db_config = {
@@ -33,8 +44,8 @@ def autocomplete_company():
         try:
             with conn.cursor() as cur:
                 like_pattern = f"%{query}%"
-                # users.ms_company_category_id instead of category_id
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT DISTINCT u.company_name,
                                     u.company_address,
                                     u.ms_company_category_id AS category_id,
@@ -47,7 +58,9 @@ def autocomplete_company():
                       AND u.company_name LIKE %s
                     ORDER BY u.company_name ASC
                     LIMIT 5
-                """, (like_pattern,))
+                    """,
+                    (like_pattern,)
+                )
                 rows = cur.fetchall()
                 for row in rows:
                     suggestions.append({
@@ -62,7 +75,6 @@ def autocomplete_company():
 
 @app.route('/', methods=['GET', 'POST'])
 def form_card():
-    # Fetch all categories for dropdown
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -82,6 +94,7 @@ def form_card():
         office_number    = request.form.get('office_number', '').strip()
         category_id      = request.form.get('category_id')
 
+        # Validate required fields
         if not all([full_name, company_name, phone, job_title, job_title_tier, email_business, category_id]):
             flash(
                 'Fields Full Name, Company Name, Phone, Job Title, Job Title Tier, '
@@ -93,6 +106,7 @@ def form_card():
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
+                # Check duplicate email
                 cur.execute(
                     "SELECT COUNT(*) AS cnt FROM kartu_nama WHERE email_business=%s",
                     (email_business,)
@@ -102,7 +116,9 @@ def form_card():
                     flash('Business email already exists.', 'warning')
                     return render_template('form.html', categories=categories)
 
-                cur.execute("""
+                # Insert data
+                cur.execute(
+                    """
                     INSERT INTO kartu_nama (
                         nama,
                         company_name,
@@ -114,17 +130,19 @@ def form_card():
                         office_number,
                         category_id
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    full_name,
-                    company_name,
-                    phone,
-                    job_title,
-                    job_title_tier,
-                    email_business,
-                    company_address if company_address else None,
-                    office_number if office_number else None,
-                    category_id
-                ))
+                    """,
+                    (
+                        full_name,
+                        company_name,
+                        phone,
+                        job_title,
+                        job_title_tier,
+                        email_business,
+                        company_address or None,
+                        office_number or None,
+                        category_id
+                    )
+                )
                 conn.commit()
                 flash('Business card data saved successfully!', 'success')
         finally:
@@ -135,4 +153,4 @@ def form_card():
     return render_template('form.html', categories=categories)
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=7000, debug=True)

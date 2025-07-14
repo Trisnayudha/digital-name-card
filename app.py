@@ -37,42 +37,70 @@ def get_db_connection():
 
 @app.route('/autocomplete_company', methods=['GET'])
 def autocomplete_company():
-    query = request.args.get('q', '').strip()
+    q = request.args.get('q', '').strip()
     suggestions = []
-    if len(query) >= 4:
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as cur:
-                like_pattern = f"%{query}%"
-                cur.execute(
-                    """
-                    SELECT DISTINCT u.company_name,
-                                    u.company_address,
-                                    u.ms_company_category_id AS category_id,
-                                    c.name AS category_name
-                    FROM users AS u
-                    JOIN ms_company_category AS c
-                      ON u.ms_company_category_id = c.id
-                    WHERE u.company_address IS NOT NULL
-                      AND TRIM(u.company_address) <> ''
-                      AND u.company_name LIKE %s
-                    ORDER BY u.company_name ASC
-                    LIMIT 5
-                    """,
-                    (like_pattern,)
-                )
-                rows = cur.fetchall()
-                for row in rows:
-                    suggestions.append({
-                        'company_name': row['company_name'],
-                        'company_address': row['company_address'],
-                        'category_id': row['category_id'],
-                        'category_name': row['category_name']
-                    })
-        finally:
-            conn.close()
-    return jsonify(suggestions)
 
+    if len(q) < 4:
+        return jsonify(suggestions)
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            like_pattern = f"%{q}%"
+            cur.execute("""
+                WITH ranked AS (
+                  SELECT
+                    u.company_name,
+                    u.company_address,
+                    u.ms_company_category_id    AS category_id,
+                    c.name                      AS category_name,
+                    u.country,
+                    u.city,
+                    u.company_web,
+                    ROW_NUMBER() OVER (
+                      PARTITION BY u.company_name
+                      ORDER BY
+                        (u.company_address IS NOT NULL AND TRIM(u.company_address) <> '') DESC,
+                        (u.country         IS NOT NULL AND TRIM(u.country)         <> '') DESC,
+                        (u.city            IS NOT NULL AND TRIM(u.city)            <> '') DESC,
+                        (u.company_web     IS NOT NULL AND TRIM(u.company_web)     <> '') DESC,
+                        u.company_name ASC
+                    ) AS rn
+                  FROM users AS u
+                  JOIN ms_company_category AS c
+                    ON u.ms_company_category_id = c.id
+                  WHERE u.company_name LIKE %s
+                )
+                SELECT
+                  company_name,
+                  company_address,
+                  category_id,
+                  category_name,
+                  country,
+                  city,
+                  COALESCE(company_web, '') AS company_web
+                FROM ranked
+                WHERE rn = 1
+                ORDER BY company_name
+                LIMIT 5;
+            """, (like_pattern,))
+
+            rows = cur.fetchall()
+            for row in rows:
+                suggestions.append({
+                    'company_name'   : row['company_name'],
+                    'company_address': row['company_address'],
+                    'category_id'    : row['category_id'],
+                    'category_name'  : row['category_name'],
+                    'country'        : row['country'],
+                    'city'           : row['city'],
+                    'company_web'    : row['company_web'],
+                })
+    finally:
+        conn.close()
+
+    return jsonify(suggestions)
+    
 @app.route('/', methods=['GET', 'POST'])
 def form_card():
     conn = get_db_connection()
